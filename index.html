@@ -235,6 +235,7 @@
         <button onclick="startTimer()">Start</button>
         <button onclick="pauseTimer()">Pause</button>
         <button onclick="stopTimer()">Stop</button>
+        <p id="savedTimeDisplay">Saved time: 0 minutes</p>
       </div>
 
       <h2>New Entry</h2>
@@ -304,8 +305,13 @@
   </div>
 
   <script>
-    let entries = JSON.parse(localStorage.getItem('personal_entries')) || [];
-    let tasks = JSON.parse(localStorage.getItem('personal_tasks')) || [];
+    let entries = JSON.parse(localStorage.getItem('entries')) || [];
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    // Check if there's saved time from a previous session
+    let savedWorkMinutes = parseInt(localStorage.getItem('currentSessionWorkMinutes')) || 0;
+    
+    // Update saved time display on page load
+    document.getElementById('savedTimeDisplay').textContent = `Saved time: ${savedWorkMinutes} minutes`;
 
     function getLyric() {
   const lyrics = [
@@ -377,29 +383,30 @@
       clearInterval(timerInterval);
       isTimerRunning = false;
     
-const workMinutes = Math.floor(elapsedSeconds / 60);
+      // Calculate work minutes from current session
+      const workMinutes = Math.floor(elapsedSeconds / 60);
       elapsedSeconds = 0;
       updateTimerDisplay();    
     
+      // Add to any existing saved time
+      savedWorkMinutes += workMinutes;
+      
+      // Update local storage and display
+      localStorage.setItem('currentSessionWorkMinutes', savedWorkMinutes);
+      document.getElementById('savedTimeDisplay').textContent = `Saved time: ${savedWorkMinutes} minutes`;
+      
+      // Notify user
       Swal.fire({
-        title: 'Are you sure you want to stop?',
-        text: `You worked for ${workMinutes} minutes. Do you want to save this time?`,
-        icon: 'info',
+        title: 'Time saved!',
+        text: `You worked for ${workMinutes} minutes. Your total saved time is now ${savedWorkMinutes} minutes.`,
+        icon: 'success',
         background: '#f3e8ff',
         color: '#4b3869',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, save it!',
-        cancelButtonText: 'No, reset',
         confirmButtonColor: '#7e57c2',
-        cancelButtonColor: '#ce93d8',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          localStorage.setItem('personal_currentSessionWorkMinutes', workMinutes);
-          Swal.fire('Time saved!', `You worked for ${workMinutes} minutes. You can now add it with your next entry.`, 'success');
-        } else {
-          Swal.fire('Timer reset', 'Your work time has been reset.', 'info');
-        }
       });
+      
+      // Update charts and summary to show the new time immediately
+      updateSummary();
     }
     
     function updateTimerDisplay() {
@@ -416,17 +423,26 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
       const note = document.getElementById('note').value;
       const mood = document.getElementById('mood').value;
       const date = new Date();
-      const savedWorkMinutes = parseInt(localStorage.getItem('personal_currentSessionWorkMinutes')) || 0;
+      
+      // Use the saved work minutes
+      const workMinutes = savedWorkMinutes;
 
-      const entry = { task, words, note, mood, workMinutes: savedWorkMinutes, date: date.toISOString() };
+      // Create a new entry with the saved time
+      const entry = { task, words, note, mood, workMinutes: workMinutes, date: date.toISOString() };
       entries.push(entry);
-      localStorage.setItem('personal_entries', JSON.stringify(entries));
-      localStorage.removeItem('personal_currentSessionWorkMinutes');
+      localStorage.setItem('entries', JSON.stringify(entries));
+      
+      // Reset saved time after adding it to an entry
+      savedWorkMinutes = 0;
+      localStorage.removeItem('currentSessionWorkMinutes');
+      document.getElementById('savedTimeDisplay').textContent = `Saved time: 0 minutes`;
 
+      // Clear form fields
       document.getElementById('task').value = '';
       document.getElementById('words').value = '';
       document.getElementById('note').value = '';
 
+      // Update displays
       updateSummary();
       renderEntries();
     }
@@ -434,15 +450,27 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
   function getTimeWorkedData() {
       const timeWorkedPerDay = {};
     
+      // Include any saved time from current session for "today"
+      const today = new Date().toLocaleDateString();
+      timeWorkedPerDay[today] = savedWorkMinutes;
+    
+      // Add times from stored entries
       entries.forEach(entry => {
-        const date = new Date(entry.date).toLocaleDateString(); // Use a formatted date (e.g., "4/26/2025")
+        const date = new Date(entry.date).toLocaleDateString();
         if (!timeWorkedPerDay[date]) {
           timeWorkedPerDay[date] = 0;
         }
-        timeWorkedPerDay[date] += entry.workMinutes; // Add the time worked for that day
+        timeWorkedPerDay[date] += entry.workMinutes || 0;
+      });
+      
+      // Remove days with zero time
+      Object.keys(timeWorkedPerDay).forEach(date => {
+        if (timeWorkedPerDay[date] === 0) {
+          delete timeWorkedPerDay[date];
+        }
       });
   
-    return timeWorkedPerDay;
+      return timeWorkedPerDay;
   }
 
     function prepareTimeWorkedGraphData() {
@@ -456,8 +484,8 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
         datasets: [{
           label: 'Time Worked (Minutes)',
           data: data,
-          borderColor: '#7e57c2', // Lavender color for the graph
-          backgroundColor: 'rgba(126, 87, 194, 0.2)', // Light lavender fill
+          borderColor: '#7e57c2',
+          backgroundColor: 'rgba(126, 87, 194, 0.2)',
           borderWidth: 1
         }]
       };
@@ -551,6 +579,12 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
         if (entryDate >= monthAgo) monthlyWorkMinutes += entry.workMinutes || 0;
       }
 
+      // Include saved time in weekly and monthly totals
+      if (savedWorkMinutes > 0) {
+        weeklyWorkMinutes += savedWorkMinutes;
+        monthlyWorkMinutes += savedWorkMinutes;
+      }
+
       if (entries.length > 0) {
         latestNote = entries[entries.length - 1].note;
         latestMood = entries[entries.length - 1].mood;
@@ -575,7 +609,8 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
       entries.forEach(entry => {
         const entryItem = document.createElement('li');
         entryItem.classList.add('bounce-in');
-        entryItem.textContent = `${entry.date.slice(0, 10)}: ${entry.task} – ${entry.words} words – Mood: ${entry.mood}`;
+        // Add work minutes to the displayed entry
+        entryItem.textContent = `${entry.date.slice(0, 10)}: ${entry.task} – ${entry.words} words – ${entry.workMinutes || 0} min – Mood: ${entry.mood}`;
         entryList.appendChild(entryItem);
       });
     }
@@ -590,7 +625,7 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
         button.textContent = 'Mark as Complete';
         button.onclick = () => {
           tasks.splice(index, 1);
-          localStorage.setItem('personal_tasks', JSON.stringify(tasks));
+          localStorage.setItem('tasks', JSON.stringify(tasks));
           renderTaskList();
         };
         taskItem.appendChild(button);
@@ -602,7 +637,7 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
       const newTask = document.getElementById('newTask').value;
       if (newTask) {
         tasks.push(newTask);
-        localStorage.setItem('personal_tasks', JSON.stringify(tasks));
+        localStorage.setItem('tasks', JSON.stringify(tasks));
         document.getElementById('newTask').value = '';
         renderTaskList();
       }
