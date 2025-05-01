@@ -304,8 +304,8 @@
   </div>
 
   <script>
-    let entries = JSON.parse(localStorage.getItem('entries')) || [];
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    let entries = JSON.parse(localStorage.getItem('personal_entries')) || [];
+    let tasks = JSON.parse(localStorage.getItem('personal_tasks')) || [];
 
     function getLyric() {
   const lyrics = [
@@ -394,7 +394,7 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
         cancelButtonColor: '#ce93d8',
       }).then((result) => {
         if (result.isConfirmed) {
-          localStorage.setItem('currentSessionWorkMinutes', workMinutes);
+          localStorage.setItem('personal_currentSessionWorkMinutes', workMinutes);
           Swal.fire('Time saved!', `You worked for ${workMinutes} minutes. You can now add it with your next entry.`, 'success');
         } else {
           Swal.fire('Timer reset', 'Your work time has been reset.', 'info');
@@ -416,12 +416,12 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
       const note = document.getElementById('note').value;
       const mood = document.getElementById('mood').value;
       const date = new Date();
-      const savedWorkMinutes = parseInt(localStorage.getItem('currentSessionWorkMinutes')) || 0;
+      const savedWorkMinutes = parseInt(localStorage.getItem('personal_currentSessionWorkMinutes')) || 0;
 
       const entry = { task, words, note, mood, workMinutes: savedWorkMinutes, date: date.toISOString() };
       entries.push(entry);
-      localStorage.setItem('entries', JSON.stringify(entries));
-      localStorage.removeItem('currentSessionWorkMinutes');
+      localStorage.setItem('personal_entries', JSON.stringify(entries));
+      localStorage.removeItem('personal_currentSessionWorkMinutes');
 
       document.getElementById('task').value = '';
       document.getElementById('words').value = '';
@@ -590,7 +590,7 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
         button.textContent = 'Mark as Complete';
         button.onclick = () => {
           tasks.splice(index, 1);
-          localStorage.setItem('tasks', JSON.stringify(tasks));
+          localStorage.setItem('personal_tasks', JSON.stringify(tasks));
           renderTaskList();
         };
         taskItem.appendChild(button);
@@ -602,7 +602,7 @@ const workMinutes = Math.floor(elapsedSeconds / 60);
       const newTask = document.getElementById('newTask').value;
       if (newTask) {
         tasks.push(newTask);
-        localStorage.setItem('tasks', JSON.stringify(tasks));
+        localStorage.setItem('personal_tasks', JSON.stringify(tasks));
         document.getElementById('newTask').value = '';
         renderTaskList();
       }
