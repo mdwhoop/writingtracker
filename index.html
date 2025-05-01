@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Writing Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Winky+Rough:ital,wght@0,300..900;1,300..900&display=swap');
+  
+    details[open] summary ~ * {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s ease;
+    }
+
+    .emoji-select:hover {
+      animation: wiggle 0.4s ease;
+    }
+    @keyframes wiggle {
+      0% { transform: rotate(0deg); }
+      25% { transform: rotate(3deg); }
+      50% { transform: rotate(-3deg); }
+      75% { transform: rotate(2deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    @keyframes bounceIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      60% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .bounce-in {
+      animation: bounceIn 0.4s ease;
+    }
+
+</style>
+  <style>
+    body {
+      font-family: 'Winky Rough', cursive;
+      background-color: #f3e8ff;
+      color: #4b3869;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 3rem;
+      color: #7e57c2;
+      text-align: center;
+    }
+    h2 {
+      font-size: 2rem;
+      color: #7e57c2;
+    }
+    .container {
+      display: flex;
+      max-width: 1200px;
+      width: 100%;
+      gap: 2rem;
+      justify-content: space-between;
+    }
+    .left-column, .right-column {
+      width: 48%;
+    }
+    textarea, input, button, select {
+      width: 100%;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 1rem;
+      font-size: 1rem;
+    }
+    button {
+      background-color: #ce93d8;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #ba68c8;
+    }
+    .summary, .lyric, .graph-container {
+      margin-top: 2rem;
+      background-color: #ede7f6;
+      padding: 1rem;
+      border-radius: 1rem;
+    }
+    .emoji-select {
+      font-size: 1.5rem;
+      text-align: center;
+    }
+    .lyric-banner {
+      background-color: #e1bee7;
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .lyric-banner blockquote {
+      font-size: 1.2rem;
+      font-style: italic;
+    }
+    .previous-entries {
+      width: 100%;
+      max-width: 1200px;
+      background-color: #ede7f6;
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-top: 2rem;
+    }
+    .previous-entries summary {
+      cursor: pointer;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #7e57c2;
+      list-style: none;
+    }
+    .previous-entries ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    .previous-entries li {
+      margin-bottom: 1rem;
+      background-color: #f9f1ff;
+      padding: 1rem;
+      border-radius: 1rem;
+    }
+    .note-for-tomorrow {
+      margin-top: 2rem;
+      background-color: #f0e1fc;
+      padding: 1rem;
+      border-radius: 1rem;
+      text-align: center;
+    }
+    .timer-section {
+      background-color: #f0e1fc;
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    #timerDisplay {
+      font-size: 2rem;
+      margin: 1rem 0;
+    }
+    .timer-section button {
+      width: 30%;
+      margin: 0.5rem;
+    }
+
+    .graph-container h2 {
+      text-align: center;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    .graph-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    .chart-wrapper {
+      width: 100%;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    canvas {
+      width: 100%;
+      height: 250px;
+    }
+  
+    details[open] summary ~ * {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s ease;
+    }
+
+    .emoji-select:hover {
+      animation: wiggle 0.4s ease;
+    }
+    @keyframes wiggle {
+      0% { transform: rotate(0deg); }
+      25% { transform: rotate(3deg); }
+      50% { transform: rotate(-3deg); }
+      75% { transform: rotate(2deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    @keyframes bounceIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      60% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .bounce-in {
+      animation: bounceIn 0.4s ease;
+    }
+
+</style>
+</head>
+<body>
+  <h1>📖 Writing Tracker ✨ </h1>
+  
+  <div class="lyric-banner">
+    <blockquote id="tswiftLyric">"And if I'm dead to you, why are you at the wake?"</blockquote>
+    <p id="tswiftSong" style="margin-top: 0.5rem; font-style: italic;">– my tears ricochet</p>
+  </div>
+  
+  <div class="container">
+    <!-- Left Column: New Entry & Task List -->
+    <div class="left-column">
+      
+      <div class="timer-section">
+        <h2>⏳ Work Timer</h2>
+        <p id="timerDisplay">00:00:00</p>
+        <button onclick="startTimer()">Start</button>
+        <button onclick="pauseTimer()">Pause</button>
+        <button onclick="stopTimer()">Stop</button>
+      </div>
+
+      <h2>New Entry</h2>
+      <label for="task">Task Description:</label>
+      <input type="text" id="task" placeholder="e.g., Write chapter 3 intro" />
+
+      <label for="words">Word Count:</label>
+      <input type="number" id="words" placeholder="e.g., 500" />
+
+      <label for="note">Note for Tomorrow:</label>
+      <textarea id="note" rows="3" placeholder="Where you left off, thoughts, etc."></textarea>
+
+      <label for="mood">Mood:</label>
+      <select id="mood" class="emoji-select">
+        <option value="😊">😊 Happy</option>
+        <option value="😐">😐 Meh</option>
+        <option value="😫">😫 Tired</option>
+        <option value="🤩">🤩 Inspired</option>
+        <option value="😭">😭 Stressed</option>
+      </select>
+
+      <button onclick="addEntry()">Add Entry</button>
+
+      <!-- Task List Section Moved Below -->
+      <h2>Task List</h2>
+      <input type="text" id="newTask" placeholder="Add a new task" />
+      <button onclick="addTask()">Add Task</button>
+      <ul id="taskList"></ul>
+    </div>
+
+    <!-- Right Column: Summary, Graph, and Note for Tomorrow -->
+    <div class="right-column">
+      <div class="note-for-tomorrow">
+        <h2>📝 Note for Tomorrow</h2>
+        <p id="noteForTomorrowText">No note for tomorrow yet.</p>
+      </div>
+
+      <div class="summary">
+        <h2>Summary</h2>
+        <p><strong>This Week's Words:</strong> <span id="weeklyTotal">0</span></p>
+        <p><strong>This Month's Words:</strong> <span id="monthlyTotal">0</span></p>
+        <p><strong>This Week's Work Time:</strong> <span id="weeklyWork">0 min</span></p>
+        <p><strong>This Month's Work Time:</strong> <span id="monthlyWork">0 min</span></p>
+        <p><strong>Latest Note:</strong> <span id="latestNote">None yet.</span></p>
+        <p><strong>Latest Mood:</strong> <span id="latestMood">None yet.</span></p>
+      </div>
+
+      <div class="graph-container">
+        <h2>📈 Charts</h2>
+        <div class="chart-wrapper">
+          <h2>Word Count</h2>
+          <canvas id="wordChart" height="100"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h2>Time</h2>
+          <canvas id="timeWorkedChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="previous-entries">
+    <details>
+      <summary><h2>Previous Entries</h2></summary>
+      <ul id="entryList"></ul>
+    </details>
+  </div>
+
+  <script>
+    let entries = JSON.parse(localStorage.getItem('entries')) || [];
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+    function getLyric() {
+  const lyrics = [
+    { quote: "All of this to say, I hope you're okay.", song: "Fortnight" },
+    { quote: "You're in self-sabotage mode, throwing spikes down on the road; but I've seen this episode and still loved the show.", song: "The Torured Poets Department" },
+    { quote: "I'd rather burn my whole life down than listen to one more second of all this bitching and moaning.", song: "But Daddy I Love Him" },
+    { quote: "I'll tell you something about my good name – it's mine alone to disgrace.", song: "But Daddy I Love Him" },
+    { quote: "I'll tell you something right now, you ain't gotta pray for me", song: "But Daddy I Love Him" },
+    { quote: "So tell me everything is not about me; but what if it is?", song: "Who's Afraid Of Little Old Me?" },
+    { quote: "Told my friends I hate you, but I love you just the same.", song: "imgonnagetyouback" },
+    { quote: "And I could see it from a mile away - a perfect case for my certain skillset.", song: "I Can Fix Him (No Really I Can)" },
+    { quote: "If you know it in one glimpse, it's legendary.", song: "loml" },
+    { quote: "They said, 'Babe, you gotta fake it 'til you make it' - and I did.", song: "I Can Do It With A Broken Heart" },
+    { quote: "I cry a lot, but I am so productive; It's an art!", song: "I Can Do It With A Broken Heart" },
+    { quote: "You look like Taylor Swift in this light, we're loving it. You've got edge she never did.", song: "Clara Bow" },
+    { quote: "I guess a lesser woman would've lost hope, a greater woman wouldn't beg.", song: "The Prophecy" },
+    { quote: "Why for years they've said that I was guilty as sin, and sleep in a liar's bed. But the sleep comes fast, and I'll meet no ghosts.", song: "Carolina" },
+    { quote: "Darling, I'm a nightmare dressed like a daydream.", song: "Blank Space" },
+    { quote: "It's like I got this music in my mind sayin' it's gonna be alright.", song: "Shake It Off" },
+    { quote: "In another life, you still would've turned my head.", song: "Timeless" },
+    { quote: "Time breaks down your mind and body - don't you let it touch your soul.", song: "Timeless" },
+    { quote: "And sometimes there's no proof, you just know.", song: "Timeless" },
+    { quote: "Hope it's nice where you are. And I hope the sun shines and it's a beautiful day.", song: "Last Kiss" },
+    { quote: "'Cause there were pages turned with the bridges burned, everything you lose is a step you take.", song: "You're On Your Own, Kid" },
+    { quote: "make the friendship bracelets, take the moment and taste it, you've got no reason to be afraid.", song: "You're On Your Own, Kid" },
+    { quote: "Draw the cat eye sharp enough to kill a man.", song: "Vigilante Shit" },
+    { quote: "They say looks can kill and I might try.", song: "Vigilante Shit" },
+    { quote: "Ladies always rise above, ladies know what people want.", song: "Vigilante Shit" },
+    { quote: "Best believe I'm still bejeweled; when I walk in the room, I can still make the whole place shimmer.", song: "Bejweled" },
+    { quote: "Sweet like honey, karma is a cat, purring in my lap 'cause it loves me.", song: "Karma" },
+    { quote: "And the voices that implore 'you should be doing more' - to you I can admit that I'm just too soft for all of it", song: "Sweet Nothing" },
+    { quote: "If you fail to plan, you plan to fail.", song: "Mastermind" },
+    { quote: "Tears on the letter, I vowed not to cry anymore.", song: "The Great War" },
+    { quote: "Romance is not dead if you keep it just yours.", song: "Paris" },
+    { quote: "It feels like a perfect night for breakfast at midnight, to fall in love with strangers.", song: "22" },
+    { quote: "Tonight's the night when we forget about the deadlines.", song: "22" },
+    { quote: "We're happy, free, confused and lonely in the best way; it's miserable and magical.", song: "22" },
+    { quote: "And all I feel in my stomach is butterflies - the beautiful kind, making up for lost time, taking flight, making me feel right", song: "Everything Has Changed" },
+    { quote: "And I see the permanent damage you did to me; never again, I just wish I could forget when it was magic.", song: "Better Man" },
+    { quote: "The more that you say, the less I know.", song: "willow" },
+    { quote: "Life was a willow and it bent right to your wind.", song: "willow" },
+    { quote: "What must it be like to grow up that beautiful? With your hair falling into place like dominoes.", song: "gold rush" },
+    { quote: "My mind turns your life into folklore; I can't dare to dream about you anymore.", song: "gold rush" },
+  ];
+  const chosen = lyrics[Math.floor(Math.random() * lyrics.length)];
+  document.getElementById('tswiftLyric').textContent = `"${chosen.quote}"`;
+  document.getElementById('tswiftSong').textContent = `– ${chosen.song}`;
+}
+        let timerInterval;
+    let elapsedSeconds = 0;
+    let isTimerRunning = false;
+    
+    function startTimer() {
+      if (!isTimerRunning) {
+        isTimerRunning = true;
+        timerInterval = setInterval(() => {
+          elapsedSeconds++;
+          updateTimerDisplay();
+        }, 1000);
+      }
+    }
+    
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+    }
+    
+    function stopTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+    
+const workMinutes = Math.floor(elapsedSeconds / 60);
+      elapsedSeconds = 0;
+      updateTimerDisplay();    
+    
+      Swal.fire({
+        title: 'Are you sure you want to stop?',
+        text: `You worked for ${workMinutes} minutes. Do you want to save this time?`,
+        icon: 'info',
+        background: '#f3e8ff',
+        color: '#4b3869',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, save it!',
+        cancelButtonText: 'No, reset',
+        confirmButtonColor: '#7e57c2',
+        cancelButtonColor: '#ce93d8',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          localStorage.setItem('currentSessionWorkMinutes', workMinutes);
+          Swal.fire('Time saved!', `You worked for ${workMinutes} minutes. You can now add it with your next entry.`, 'success');
+        } else {
+          Swal.fire('Timer reset', 'Your work time has been reset.', 'info');
+        }
+      });
+    }
+    
+    function updateTimerDisplay() {
+      const hours = String(Math.floor(elapsedSeconds / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((elapsedSeconds % 3600) / 60)).padStart(2, '0');
+      const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').textContent = `${hours}:${minutes}:${seconds}`;
+    }
+
+
+    function addEntry() {
+      const task = document.getElementById('task').value;
+      const words = parseInt(document.getElementById('words').value) || 0;
+      const note = document.getElementById('note').value;
+      const mood = document.getElementById('mood').value;
+      const date = new Date();
+      const savedWorkMinutes = parseInt(localStorage.getItem('currentSessionWorkMinutes')) || 0;
+
+      const entry = { task, words, note, mood, workMinutes: savedWorkMinutes, date: date.toISOString() };
+      entries.push(entry);
+      localStorage.setItem('entries', JSON.stringify(entries));
+      localStorage.removeItem('currentSessionWorkMinutes');
+
+      document.getElementById('task').value = '';
+      document.getElementById('words').value = '';
+      document.getElementById('note').value = '';
+
+      updateSummary();
+      renderEntries();
+    }
+
+  function getTimeWorkedData() {
+      const timeWorkedPerDay = {};
+    
+      entries.forEach(entry => {
+        const date = new Date(entry.date).toLocaleDateString(); // Use a formatted date (e.g., "4/26/2025")
+        if (!timeWorkedPerDay[date]) {
+          timeWorkedPerDay[date] = 0;
+        }
+        timeWorkedPerDay[date] += entry.workMinutes; // Add the time worked for that day
+      });
+  
+    return timeWorkedPerDay;
+  }
+
+    function prepareTimeWorkedGraphData() {
+      const timeWorkedPerDay = getTimeWorkedData();
+    
+      const labels = Object.keys(timeWorkedPerDay);
+      const data = Object.values(timeWorkedPerDay);
+    
+      return {
+        labels: labels,
+        datasets: [{
+          label: 'Time Worked (Minutes)',
+          data: data,
+          borderColor: '#7e57c2', // Lavender color for the graph
+          backgroundColor: 'rgba(126, 87, 194, 0.2)', // Light lavender fill
+          borderWidth: 1
+        }]
+      };
+    }
+
+    function drawChart(dataPoints) {
+      const ctx = document.getElementById('wordChart').getContext('2d');
+      const labels = Object.keys(dataPoints).sort();
+      const data = labels.map(date => dataPoints[date]);
+      if (window.wordChartInstance) window.wordChartInstance.destroy();
+      window.wordChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Words Written',
+            data,
+            backgroundColor: '#7e57c2',
+            borderColor: '#7e57c2',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    function createTimeWorkedChart() {
+      const ctx = document.getElementById('timeWorkedChart').getContext('2d');
+      const timeWorkedData = prepareTimeWorkedGraphData();
+      
+      if (window.timeWorkedChartInstance) window.timeWorkedChartInstance.destroy();
+      
+      window.timeWorkedChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: timeWorkedData,
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return value + ' min';
+                }
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.raw + ' minutes';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateSummary() {
+      const now = new Date();
+      let weeklyTotal = 0;
+      let monthlyTotal = 0;
+      let weeklyWorkMinutes = 0;
+      let monthlyWorkMinutes = 0;
+      let latestNote = 'None yet.';
+      let latestMood = 'None yet.';
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      const monthAgo = new Date();
+      monthAgo.setMonth(now.getMonth() - 1);
+      const dataPoints = {};
+
+      for (const entry of entries) {
+        const entryDate = new Date(entry.date);
+        const dayKey = entryDate.toISOString().slice(0, 10);
+        if (!dataPoints[dayKey]) dataPoints[dayKey] = 0;
+        dataPoints[dayKey] += entry.words;
+        if (entryDate >= weekAgo) weeklyTotal += entry.words;
+        if (entryDate >= monthAgo) monthlyTotal += entry.words;
+        if (entryDate >= weekAgo) weeklyWorkMinutes += entry.workMinutes || 0;
+        if (entryDate >= monthAgo) monthlyWorkMinutes += entry.workMinutes || 0;
+      }
+
+      if (entries.length > 0) {
+        latestNote = entries[entries.length - 1].note;
+        latestMood = entries[entries.length - 1].mood;
+      }
+
+      document.getElementById('weeklyTotal').textContent = weeklyTotal;
+      document.getElementById('monthlyTotal').textContent = monthlyTotal;
+      document.getElementById('latestNote').textContent = latestNote;
+      document.getElementById('latestMood').textContent = latestMood;
+      document.getElementById('noteForTomorrowText').textContent = latestNote || "No note for tomorrow yet.";
+      document.getElementById('weeklyWork').textContent = weeklyWorkMinutes + " min";
+      document.getElementById('monthlyWork').textContent = monthlyWorkMinutes + " min";
+      getLyric();
+      drawChart(dataPoints);
+      createTimeWorkedChart();
+      
+    }
+      
+    function renderEntries() {
+      const entryList = document.getElementById('entryList');
+      entryList.innerHTML = '';
+      entries.forEach(entry => {
+        const entryItem = document.createElement('li');
+        entryItem.classList.add('bounce-in');
+        entryItem.textContent = `${entry.date.slice(0, 10)}: ${entry.task} – ${entry.words} words – Mood: ${entry.mood}`;
+        entryList.appendChild(entryItem);
+      });
+    }
+
+    function renderTaskList() {
+      const taskList = document.getElementById('taskList');
+      taskList.innerHTML = '';
+      tasks.forEach((task, index) => {
+        const taskItem = document.createElement('li');
+        taskItem.textContent = task;
+        const button = document.createElement('button');
+        button.textContent = 'Mark as Complete';
+        button.onclick = () => {
+          tasks.splice(index, 1);
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+          renderTaskList();
+        };
+        taskItem.appendChild(button);
+        taskList.appendChild(taskItem);
+      });
+    }
+
+    function addTask() {
+      const newTask = document.getElementById('newTask').value;
+      if (newTask) {
+        tasks.push(newTask);
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        document.getElementById('newTask').value = '';
+        renderTaskList();
+      }
+    }
+
+    renderTaskList();
+    renderEntries();
+    updateSummary();
+  </script>
+</body>
+</html>
