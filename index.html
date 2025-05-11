@@ -235,7 +235,7 @@
         <button onclick="startTimer()">Start</button>
         <button onclick="pauseTimer()">Pause</button>
         <button onclick="stopTimer()">Stop</button>
-        <p id="savedTimeDisplay">Saved time: 0 minutes</p>
+        <p id="todayTimeDisplay">Time worked today: 0 minutes</p>
       </div>
 
       <h2>New Entry</h2>
@@ -311,11 +311,13 @@
     // Load data using the prefixed keys
     let entries = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'entries')) || [];
     let tasks = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tasks')) || [];
-    // Check if there's saved time from a previous session
-    let savedWorkMinutes = parseInt(localStorage.getItem(STORAGE_PREFIX + 'currentSessionWorkMinutes')) || 0;
     
-    // Update saved time display on page load
-    document.getElementById('savedTimeDisplay').textContent = `Saved time: ${savedWorkMinutes} minutes`;
+    // Track daily time worked
+    let todaysDate = new Date().toLocaleDateString();
+    let todayWorkMinutes = parseInt(localStorage.getItem(STORAGE_PREFIX + 'todayWorkMinutes_' + todaysDate)) || 0;
+    
+    // Update today's time display on page load
+    document.getElementById('todayTimeDisplay').textContent = `Time worked today: ${todayWorkMinutes} minutes`;
 
     // Note: getLyric function is now imported from lyrics.js
     
@@ -347,25 +349,44 @@
       elapsedSeconds = 0;
       updateTimerDisplay();    
     
-      // Add to any existing saved time
-      savedWorkMinutes += workMinutes;
-      
-      // Update local storage and display
-      localStorage.setItem(STORAGE_PREFIX + 'currentSessionWorkMinutes', savedWorkMinutes);
-      document.getElementById('savedTimeDisplay').textContent = `Saved time: ${savedWorkMinutes} minutes`;
-      
-      // Notify user
-      Swal.fire({
-        title: 'Time saved!',
-        text: `You worked for ${workMinutes} minutes. Your total saved time is now ${savedWorkMinutes} minutes.`,
-        icon: 'success',
-        background: '#f3e8ff',
-        color: '#4b3869',
-        confirmButtonColor: '#7e57c2',
-      });
-      
-      // Update charts and summary to show the new time immediately
-      updateSummary();
+      if (workMinutes > 0) {
+        // Add the minutes to today's total
+        todayWorkMinutes += workMinutes;
+        
+        // Save to localStorage with date to track daily totals
+        localStorage.setItem(STORAGE_PREFIX + 'todayWorkMinutes_' + todaysDate, todayWorkMinutes);
+        
+        // Update the display
+        document.getElementById('todayTimeDisplay').textContent = `Time worked today: ${todayWorkMinutes} minutes`;
+        
+        // Create an auto-entry for the time worked
+        const now = new Date();
+        const timeEntry = {
+          task: `Worked for ${workMinutes} minutes`,
+          words: 0,
+          note: "",
+          mood: "⏳",
+          workMinutes: workMinutes,
+          date: now.toISOString()
+        };
+        
+        entries.push(timeEntry);
+        localStorage.setItem(STORAGE_PREFIX + 'entries', JSON.stringify(entries));
+        
+        // Notify user
+        Swal.fire({
+          title: 'Time recorded!',
+          text: `You worked for ${workMinutes} minutes. Today's total: ${todayWorkMinutes} minutes.`,
+          icon: 'success',
+          background: '#f3e8ff',
+          color: '#4b3869',
+          confirmButtonColor: '#7e57c2',
+        });
+        
+        // Update charts and summary to show the new time immediately
+        updateSummary();
+        renderEntries();
+      }
     }
     
     function updateTimerDisplay() {
@@ -375,7 +396,6 @@
       document.getElementById('timerDisplay').textContent = `${hours}:${minutes}:${seconds}`;
     }
 
-
     function addEntry() {
       const task = document.getElementById('task').value;
       const words = parseInt(document.getElementById('words').value) || 0;
@@ -383,18 +403,10 @@
       const mood = document.getElementById('mood').value;
       const date = new Date();
       
-      // Use the saved work minutes
-      const workMinutes = savedWorkMinutes;
-
-      // Create a new entry with the saved time
-      const entry = { task, words, note, mood, workMinutes: workMinutes, date: date.toISOString() };
+      // Create a new entry with zero work minutes (since time is tracked separately now)
+      const entry = { task, words, note, mood, workMinutes: 0, date: date.toISOString() };
       entries.push(entry);
       localStorage.setItem(STORAGE_PREFIX + 'entries', JSON.stringify(entries));
-      
-      // Reset saved time after adding it to an entry
-      savedWorkMinutes = 0;
-      localStorage.removeItem(STORAGE_PREFIX + 'currentSessionWorkMinutes');
-      document.getElementById('savedTimeDisplay').textContent = `Saved time: 0 minutes`;
 
       // Clear form fields
       document.getElementById('task').value = '';
@@ -406,14 +418,10 @@
       renderEntries();
     }
 
-  function getTimeWorkedData() {
+    function getTimeWorkedData() {
       const timeWorkedPerDay = {};
     
-      // Include any saved time from current session for "today"
-      const today = new Date().toLocaleDateString();
-      timeWorkedPerDay[today] = savedWorkMinutes;
-    
-      // Add times from stored entries
+      // Group entries by date and sum up work minutes
       entries.forEach(entry => {
         const date = new Date(entry.date).toLocaleDateString();
         if (!timeWorkedPerDay[date]) {
@@ -430,7 +438,7 @@
       });
   
       return timeWorkedPerDay;
-  }
+    }
 
     function prepareTimeWorkedGraphData() {
       const timeWorkedPerDay = getTimeWorkedData();
@@ -530,22 +538,34 @@
       for (const entry of entries) {
         const entryDate = new Date(entry.date);
         const dayKey = entryDate.toISOString().slice(0, 10);
-        if (!dataPoints[dayKey]) dataPoints[dayKey] = 0;
-        dataPoints[dayKey] += entry.words;
-        if (entryDate >= weekAgo) weeklyTotal += entry.words;
-        if (entryDate >= monthAgo) monthlyTotal += entry.words;
+        
+        // Only count words for non-timer entries
+        if (entry.mood !== "⏳") {
+          if (!dataPoints[dayKey]) dataPoints[dayKey] = 0;
+          dataPoints[dayKey] += entry.words;
+          if (entryDate >= weekAgo) weeklyTotal += entry.words;
+          if (entryDate >= monthAgo) monthlyTotal += entry.words;
+        }
+        
+        // Count work minutes for all entries
         if (entryDate >= weekAgo) weeklyWorkMinutes += entry.workMinutes || 0;
         if (entryDate >= monthAgo) monthlyWorkMinutes += entry.workMinutes || 0;
       }
 
-      // Include saved time in weekly and monthly totals
-      if (savedWorkMinutes > 0) {
-        weeklyWorkMinutes += savedWorkMinutes;
-        monthlyWorkMinutes += savedWorkMinutes;
+      // Find the latest note-containing entry
+      let latestNoteEntry = null;
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].note && entries[i].note.trim() !== '') {
+          latestNoteEntry = entries[i];
+          break;
+        }
       }
 
-      if (entries.length > 0) {
-        latestNote = entries[entries.length - 1].note;
+      if (latestNoteEntry) {
+        latestNote = latestNoteEntry.note;
+        latestMood = latestNoteEntry.mood;
+      } else if (entries.length > 0) {
+        // If no entry has a note, use the mood from the latest entry
         latestMood = entries[entries.length - 1].mood;
       }
 
@@ -559,17 +579,42 @@
       getLyric(); // This calls the function from the external file
       drawChart(dataPoints);
       createTimeWorkedChart();
-      
     }
       
     function renderEntries() {
       const entryList = document.getElementById('entryList');
       entryList.innerHTML = '';
-      entries.forEach(entry => {
+      
+      // Sort entries by date, newest first
+      const sortedEntries = [...entries].sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+      });
+      
+      sortedEntries.forEach(entry => {
         const entryItem = document.createElement('li');
         entryItem.classList.add('bounce-in');
-        // Add work minutes to the displayed entry
-        entryItem.textContent = `${entry.date.slice(0, 10)}: ${entry.task} – ${entry.words} words – ${entry.workMinutes || 0} min – Mood: ${entry.mood}`;
+        
+        // Format date nicely
+        const entryDate = new Date(entry.date);
+        const formattedDate = entryDate.toLocaleDateString() + ' ' + 
+                            entryDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Display different content based on whether it's a timer entry or regular entry
+        if (entry.mood === "⏳") {
+          entryItem.textContent = `${formattedDate}: ${entry.task}`;
+        } else {
+          entryItem.textContent = `${formattedDate}: ${entry.task} – ${entry.words} words – Mood: ${entry.mood}`;
+          
+          // Add note if it exists
+          if (entry.note && entry.note.trim() !== '') {
+            const noteElement = document.createElement('p');
+            noteElement.textContent = `Note: ${entry.note}`;
+            noteElement.style.marginTop = '0.5rem';
+            noteElement.style.fontStyle = 'italic';
+            entryItem.appendChild(noteElement);
+          }
+        }
+        
         entryList.appendChild(entryItem);
       });
     }
@@ -602,6 +647,22 @@
       }
     }
 
+    // Check if we need to reset the daily counter
+    function checkDateReset() {
+      const storedDate = localStorage.getItem(STORAGE_PREFIX + 'lastStoredDate');
+      const currentDate = new Date().toLocaleDateString();
+      
+      if (storedDate !== currentDate) {
+        // It's a new day, reset today's counter
+        todayWorkMinutes = 0;
+        localStorage.setItem(STORAGE_PREFIX + 'todayWorkMinutes_' + currentDate, 0);
+        localStorage.setItem(STORAGE_PREFIX + 'lastStoredDate', currentDate);
+        document.getElementById('todayTimeDisplay').textContent = `Time worked today: 0 minutes`;
+      }
+    }
+
+    // Run these on page load
+    checkDateReset();
     renderTaskList();
     renderEntries();
     updateSummary();
